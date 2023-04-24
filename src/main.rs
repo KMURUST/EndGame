@@ -40,7 +40,10 @@ fn main() {
                             KeyCode::Down => { map_writer.down_block(); },
                             KeyCode::Left => { map_writer.move_block(Move::Left); },
                             KeyCode::Right => { map_writer.move_block(Move::Right); },
-                            KeyCode::Esc => { process::exit(0); },
+                            KeyCode::Esc => {
+                                crossterm::terminal::disable_raw_mode();
+                                process::exit(0);
+                            },
                             _ => { println!("{:?}", key.code) }
                         }
                     },
