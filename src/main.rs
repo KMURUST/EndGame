@@ -1,6 +1,7 @@
 mod tetris;
 use std::io::stdout;
 use std::{thread, time};
+use std::process;
 
 use crossterm::ExecutableCommand;
 use crossterm::event::{read, Event::Key, KeyCode};
@@ -39,6 +40,7 @@ fn main() {
                             KeyCode::Down => { map_writer.down_block(); },
                             KeyCode::Left => { map_writer.move_block(Move::Left); },
                             KeyCode::Right => { map_writer.move_block(Move::Right); },
+                            KeyCode::Esc => { process::exit(0); },
                             _ => { println!("{:?}", key.code) }
                         }
                     },
