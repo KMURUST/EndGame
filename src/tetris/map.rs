@@ -9,6 +9,9 @@ use super::built_in::built_in::{make_shape, self, cls};
 use std::thread;
 
 use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct Map {
@@ -43,23 +46,42 @@ pub struct Map {
 */
 
 impl Map {
+    
     pub fn new() -> Self {
         let mut map: Vec<Vec<usize>> = vec![];
-
+        
         let mut rng = thread_rng();
         let block:Block = Block::new(rng.gen_range(1..8), None, 0);
         
+        fn  read_best_score() -> usize {
+            let root = std::env::current_dir().unwrap();
+            let dir_path = &root.join("data").to_str().unwrap().replace("\\", "/");
+            let dir_path = Path::new(dir_path);
+            let path = root.join("data/score.txt").to_str().unwrap().replace("\\","/");
+            
+            let checker = fs::read_to_string(&path);
+            //  create file when read failed
+            let best_score: usize = match checker {
+                Ok(r) => { r.parse::<usize>().unwrap() },
+                Err(e) => {
+                    //경로가 존재하지 않으면 directory 생성
+                    if !dir_path.exists() {
+                        fs::create_dir(dir_path).unwrap();
+                    }
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        //file이 존재하지 않으면 file 생성 후 0 write
+                        let mut file = File::create(path).unwrap();
+                        file.write_all("0".as_bytes()).unwrap();
+                    }
+                    0 as usize
+                }
+            };
+            best_score
+        }
+        
         // 점수 기록
-        let root = std::env::current_dir().unwrap();
-        let path = root.join("src/score.txt").to_str().unwrap().replace("\\","/");
-
-        let checker = fs::read_to_string(path).unwrap().parse::<usize>();
-        println!("{checker:?}");
-        let best_score: usize = match checker {
-            Ok(ok) => ok,
-            Err(_) => 0
-        };
-
+        let best_score = read_best_score();
+        
         map = vec![vec![0; 10]; 20];
         Self {
             map: map,
@@ -105,7 +127,7 @@ impl Map {
                     self.best_score = self.score;
                     // 점수 기록
                     let root = std::env::current_dir().unwrap();
-                    let path = root.join("src/score.txt").to_str().unwrap().replace("\\","/");
+                    let path = root.join("data/score.txt").to_str().unwrap().replace("\\","/");
                     let checker = fs::write(path, self.best_score.to_string());
                     match checker {
                         Ok(ok) => ok,
