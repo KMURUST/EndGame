@@ -6,6 +6,9 @@ use std::process;
 use crossterm::ExecutableCommand;
 use crossterm::event::{read, Event::Key, KeyCode};
 
+use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
 use tetris::built_in::built_in;
 use tetris::map::Map;
 use tetris::pos::Move;
