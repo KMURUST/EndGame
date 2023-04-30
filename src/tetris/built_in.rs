@@ -1,6 +1,8 @@
+
 pub mod built_in {
     use std::{io::{stdout}, thread, time};
     use crossterm::ExecutableCommand;
+    use std::mem;
 
     use crate::tetris::pos::Pos;
 
@@ -178,6 +180,44 @@ pub mod built_in {
             Err(())
         }
         
+    }
+
+    pub fn byte_to_usize_vec(bytes: &[u8], row_len: usize) -> Vec<Vec<usize>> {
+        let col_len = bytes.len() / (row_len * std::mem::size_of::<usize>());
+        let mut vec = vec![vec![0usize; row_len]; col_len];
+    
+        for i in 0..col_len {
+            for j in 0..row_len {
+                let offset = (i * row_len + j) * std::mem::size_of::<usize>();
+                vec[i][j] = usize::from_le_bytes([
+                    bytes[offset],
+                    bytes[offset + 1],
+                    bytes[offset + 2],
+                    bytes[offset + 3],
+                    bytes[offset + 4],
+                    bytes[offset + 5],
+                    bytes[offset + 6],
+                    bytes[offset + 7],
+                ]);
+            }
+        }
+        vec
+    }
+
+    pub fn usize_vec_to_byte(vec: &Vec<Vec<usize>>) -> Option<Vec<u8>> {
+        if vec.len() <= 0 {
+            return None;
+        }
+        let mut vec_cpy = vec.clone();
+        let _size = mem::size_of::<usize>;
+        let flattened: Vec<usize> = vec_cpy.iter().flatten().cloned().collect();
+    
+        let byte_array: Vec<u8> = flattened.iter().fold(vec![], |mut acc, &elem| {
+            acc.extend(&elem.to_ne_bytes());
+            acc
+        });
+    
+        Some(byte_array)
     }
 
     pub fn cls(){
