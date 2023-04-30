@@ -10,8 +10,10 @@ use std::sync::Mutex;
 use crossterm::event::{read, Event::Key, KeyCode};
 use crossterm::ExecutableCommand;
 
+use crossterm::{terminal};
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpStream};
 
 use tetris::built_in::built_in;
 use tetris::map::Map;
@@ -46,7 +48,7 @@ fn usize_vec_to_byte(vec: &Vec<Vec<usize>>) -> Option<Vec<u8>> {
     let mut vec_cpy = vec.clone();
     let _size = mem::size_of::<usize>;
     let flattened: Vec<usize> = vec_cpy.iter().flatten().cloned().collect();
-    
+
     let byte_array: Vec<u8> = flattened.iter().fold(vec![], |mut acc, &elem| {
         acc.extend(&elem.to_ne_bytes());
         acc
@@ -55,10 +57,7 @@ fn usize_vec_to_byte(vec: &Vec<Vec<usize>>) -> Option<Vec<u8>> {
     Some(byte_array)
 }
 
-async fn tcp_process(s_mutex: &Arc<Mutex<TcpStream>>, m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
-    let mut stream = (*s_mutex).lock().unwrap();
-    let map_writer = (*m_mutex).lock().unwrap();
-    let map_data = map_writer.map.clone();
+async fn tcp_process(stream: &mut TcpStream, map_data: &Vec<Vec<usize>>) -> Option<Vec<Vec<usize>>> {
     //2차원 벡터 변환
     let byte_array = usize_vec_to_byte(&map_data);
     stream.write_all(&byte_array.unwrap()).await.unwrap();
@@ -82,14 +81,45 @@ async fn tcp_process(s_mutex: &Arc<Mutex<TcpStream>>, m_mutex: &Arc<Mutex<Map>>)
     Some(response)
 }
 
-async fn game_update(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
-            
+async fn handle_block(m_mutex: &Arc<Mutex<Map>>, key: KeyCode) {
     let mut map_writer = (*m_mutex).lock().unwrap();
 
+    match key {
+        KeyCode::Up => {
+            map_writer.spin_block();
+        }
+        KeyCode::Down => {
+            map_writer.down_block();
+        }
+        KeyCode::Left => {
+            map_writer.move_block(Move::Left);
+        }
+        KeyCode::Right => {
+            map_writer.move_block(Move::Right);
+        }
+        KeyCode::Esc => {
+            crossterm::terminal::disable_raw_mode();
+            process::exit(0);
+        }
+        _ => {
+            println!("{:?}", key)
+        }
+    }
+}
+
+fn display_game(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
+    let map_data = (*m_mutex).lock().unwrap();
+    //let mut map_clone = map_data.map.clone();
     built_in::cls();
+    map_data.encoding();
+    map_data.print_score();
+    Ok(())
+}
+
+async fn game_update(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
+    let mut map_writer = (*m_mutex).lock().unwrap();
+
     map_writer.down_block();
-    map_writer.encoding();
-    map_writer.print_score();
     if map_writer.block.is_none() {
         println!("GAME OVER!");
         return Err(());
@@ -101,42 +131,13 @@ async fn game_update(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ssstart");
-    
-    let stream = Arc::new(Mutex::new(TcpStream::connect("127.0.0.1:8080").await.unwrap()));
+
     let map = Arc::new(Mutex::new(Map::new()));
-    
+
     crossterm::terminal::enable_raw_mode();
     
     let map_clone = Arc::clone(&map);
-    let stream_clone = Arc::clone(&stream);
-    let main_thread = tokio::spawn(async move {
-        
-        async fn handle_block(m_mutex: &Arc<Mutex<Map>>, key: KeyCode) {
-            let mut map_writer = (*m_mutex).lock().unwrap();
-        
-            match key {
-                KeyCode::Up => {
-                    map_writer.spin_block();
-                }
-                KeyCode::Down => {
-                    map_writer.down_block();
-                }
-                KeyCode::Left => {
-                    map_writer.move_block(Move::Left);
-                }
-                KeyCode::Right => {
-                    map_writer.move_block(Move::Right);
-                }
-                KeyCode::Esc => {
-                    crossterm::terminal::disable_raw_mode();
-                    process::exit(0);
-                }
-                _ => {
-                    println!("{:?}", key)
-                }
-            }
-        }
-        
+    let control_thread = tokio::spawn(async move {
         loop {
             match read().unwrap() {
                 Key(key) => {
@@ -144,30 +145,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match game_update(&map_clone).await {
                         Ok(n) => {
                             //서버로 전송
-                        },
+                        }
                         Err(e) => {
-                            break ;
+                            break;
                         }
                     }
                 }
                 _ => {}
             }
-            //tcp_process(&stream_clone, &map_clone).await;
         }
     });
 
-    let map_wclone = Arc::clone(&map);
-    let stream_wclone = Arc::clone(&stream);
-    
-    let down_thread = tokio::spawn(async move {
-
+    let map_dclone = Arc::clone(&map);
+    let update_thread = tokio::spawn(async move {
         loop {
-            match game_update(&map_wclone).await {
+            match game_update(&map_dclone).await {
                 Ok(n) => {
                     //서버로 전송
-                },
+                }
                 Err(e) => {
-                    break ;
+                    break;
                 }
             }
             // 1.5초마다 블럭 이동
@@ -175,8 +172,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    main_thread.await.unwrap();
-    down_thread.await.unwrap();
+    let map_fclone = Arc::clone(&map);
+    let display_thread = tokio::spawn(async move {
+        loop {
+            built_in::cls();
+            display_game(&map_fclone);
+            // 1.5초마다 블럭 이동
+            thread::sleep(time::Duration::from_millis(100))
+        }
+    });
+
+    control_thread.await.unwrap();
+    update_thread.await.unwrap();
+    display_thread.await.unwrap();
 
     crossterm::terminal::disable_raw_mode();
     Ok(())
