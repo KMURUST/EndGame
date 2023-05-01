@@ -13,13 +13,23 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use serde::Serialize;
+
+#[derive(Serialize, Debug, Clone)]
+struct TetrisData {
+    map: [[usize; 10]; 20], // 10x20 map
+    score: usize, // current score
+}
+
 #[derive(Debug, Clone)]
 pub struct Map {
     pub map: Vec<Vec<usize>>,
     pub block: Block,
     pub score: usize,
     pub best_score: usize,
-    pub stop: bool
+    pub stop: bool,
+
+    pub screen: Vec<Vec<usize>>
 }
 
 /*
@@ -49,6 +59,8 @@ impl Map {
     
     pub fn new() -> Self {
         let mut map: Vec<Vec<usize>> = vec![];
+        
+        let mut screen: Vec<Vec<usize>> = vec![];
         
         let mut rng = thread_rng();
         let block:Block = Block::new(rng.gen_range(1..8), None, 0);
@@ -83,12 +95,15 @@ impl Map {
         let best_score = read_best_score();
         
         map = vec![vec![0; 10]; 20];
+        screen = vec![vec![0; 10]; 20];
         Self {
             map: map,
             block: block,
             score: 0,
             best_score: best_score,
-            stop: false
+            stop: false,
+            
+            screen: screen
         }
     }
 
@@ -240,13 +255,21 @@ impl Map {
         ok
     }
 
-    pub fn encoding(&self) {
-        let mut map = self.map.clone();
+    pub fn encoding(&mut self) {
         let block = self.block.clone();
-
-        for shape in &block.shape{
-            map[shape[1]][shape[0]] = block.id;
+        let map = self.map.clone();
+        //초기화
+        for (i, row) in self.screen.iter_mut().enumerate() {
+            for (j, val) in row.iter_mut().enumerate() {
+                *val = map[i][j];
+            }
         }
+        for shape in &block.shape{
+            self.screen[shape[1]][shape[0]] = block.id;
+        }
+    }
+
+    pub fn display(&self) {
         for _ in 0..12{
             let _ = execute!(
                 stdout(),
@@ -257,7 +280,7 @@ impl Map {
             );
         }
         print!("\r\n");
-        for i in &map{
+        for i in &self.screen{
             let _ = execute!(
                 stdout(),
                 SetForegroundColor(Color::White),
@@ -308,7 +331,7 @@ impl Map {
                 Print("ㅤ".to_string()),
                 ResetColor
             );
-        }
+        } 
     }
 
 }
