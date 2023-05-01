@@ -157,7 +157,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let map_dclone = Arc::clone(&map);
     let update_thread = tokio::spawn(async move {
         loop {
-            game_update(&map_dclone, true).await;
+            let isEnd = game_update(&map_dclone, true).await;
+            match isEnd {
+                Ok(_)=>{}
+                Err(_)=>{
+                    crossterm::terminal::disable_raw_mode();
+                    std::process::exit(0);
+                }
+            }
             tcp_process(&map_dclone).await;
             
             // 1.5초마다 블럭 이동
