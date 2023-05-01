@@ -14,9 +14,10 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use serde::Serialize;
+use serde::Deserialize;
 
-#[derive(Serialize, Debug, Clone)]
-struct TetrisData {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TetrisData {
     map: [[usize; 10]; 20], // 10x20 map
     score: usize, // current score
 }
@@ -29,7 +30,8 @@ pub struct Map {
     pub best_score: usize,
     pub stop: bool,
 
-    pub screen: Vec<Vec<usize>>
+    pub screen: Vec<Vec<usize>>,
+    pub gameData: TetrisData
 }
 
 /*
@@ -96,6 +98,12 @@ impl Map {
         
         map = vec![vec![0; 10]; 20];
         screen = vec![vec![0; 10]; 20];
+
+        let g_data = TetrisData {
+            map: [[0usize; 10]; 20],
+            score: 0
+        };
+        
         Self {
             map: map,
             block: block,
@@ -103,7 +111,8 @@ impl Map {
             best_score: best_score,
             stop: false,
             
-            screen: screen
+            screen: screen,
+            gameData: g_data
         }
     }
 
@@ -191,6 +200,26 @@ impl Map {
         );
     }
 
+    pub fn print_enemy_score(&self) {
+        println!("\r\n");
+        let bold = Color::Rgb { r: 138, g: 70, b: 255 };
+        let org = Color::Rgb { r: 129, g: 135, b: 251 };
+        _ = execute!(
+            stdout(),
+            SetForegroundColor(Color::Black),
+            SetBackgroundColor(org),
+            Print("enemy score  ".to_string()),
+            ResetColor
+        );
+        _ = execute!(
+            stdout(),
+            SetForegroundColor(Color::White),
+            SetBackgroundColor(bold),
+            Print(self.gameData.score.to_string()),
+            ResetColor
+        );
+    }
+
     pub fn down_block(&mut self){
         if self.stop{return;}
         self.block.pos.y += 1;
@@ -270,17 +299,8 @@ impl Map {
     }
 
     pub fn display(&self) {
-        for _ in 0..12{
-            let _ = execute!(
-                stdout(),
-                SetForegroundColor(Color::White),
-                SetBackgroundColor(Color::White),
-                Print("ㅤ".to_string()),
-                ResetColor
-            );
-        }
-        print!("\r\n");
-        for i in &self.screen{
+
+        fn print_row(row:&[usize]) {
             let _ = execute!(
                 stdout(),
                 SetForegroundColor(Color::White),
@@ -289,7 +309,7 @@ impl Map {
                 ResetColor
             );
 
-            for j in i{
+            for j in row {
                 let color = match j{
                     0 => Color::Rgb { r: 0, g: 0, b: 0 },
                     1 => Color::Rgb { r: 0, g: 240, b: 240 },
@@ -314,6 +334,7 @@ impl Map {
                     print!("ㅤ")
                 }
             }
+
             let _ = execute!(
                 stdout(),
                 SetForegroundColor(Color::White),
@@ -321,9 +342,28 @@ impl Map {
                 Print("ㅤ".to_string()),
                 ResetColor
             );
+        }
+        
+        for _ in 0..24{
+            let _ = execute!(
+                stdout(),
+                SetForegroundColor(Color::White),
+                SetBackgroundColor(Color::White),
+                Print("ㅤ".to_string()),
+                ResetColor
+            );
+        }
+        print!("\r\n");
+
+        //game screen
+        for i in 0..20 {
+            //me
+            print_row(&self.screen[i]);
+            print_row(&self.gameData.map[i]);
             print!("\r\n");
         }
-        for _ in 0..12{
+        
+        for _ in 0..24{
             let _ = execute!(
                 stdout(),
                 SetForegroundColor(Color::White),
@@ -331,7 +371,7 @@ impl Map {
                 Print("ㅤ".to_string()),
                 ResetColor
             );
-        } 
+        }
     }
 
 }

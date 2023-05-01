@@ -35,7 +35,7 @@ async fn initialize() -> std::io::Result<()> {
     TCP_STREAM.set(Arc::new(Mutex::new(stream))).unwrap();
     Ok(())
 }
-
+/*
 async fn tcp_process(m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
     let mut stream = TCP_STREAM.get().unwrap().lock().unwrap();
 
@@ -63,7 +63,7 @@ async fn tcp_process(m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
     let response = built_in::byte_to_usize_vec(data, 12);
     Some(response)
 }
-
+*/
 async fn handle_block(m_mutex: &Arc<Mutex<Map>>, key: KeyCode) {
     let mut map_writer = (*m_mutex).lock().unwrap();
 
@@ -95,6 +95,7 @@ async fn display_game(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
     built_in::cls();
     map_data.display();
     map_data.print_score();
+    map_data.print_enemy_score();
     Ok(())
 }
 
@@ -124,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key(key) => {
                     handle_block(&map_clone, key.code).await;
                     game_update(&map_clone).await;
-                    tcp_process(&map_clone).await;
+                    //tcp_process(&map_clone).await;
                 }
                 _ => {}
             }
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let update_thread = tokio::spawn(async move {
         loop {
             game_update(&map_dclone).await;
-            tcp_process(&map_dclone).await;
+            //tcp_process(&map_dclone).await;
             
             // 1.5초마다 블럭 이동
             thread::sleep(time::Duration::from_millis(1500))
