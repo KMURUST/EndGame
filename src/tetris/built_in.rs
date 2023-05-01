@@ -123,34 +123,6 @@ pub mod built_in {
         }
     }
 
-    pub fn byte_to_usize_vec(bytes: &[u8], row_len: usize) -> Vec<Vec<usize>> {
-        let mut vec = vec![vec![0usize; row_len]; 20];
-    
-        for i in 0..20 {
-            for j in 0..row_len {
-            let offset = i * row_len + j;
-            vec[i][j] = bytes[offset] as usize;
-        }
-        }
-        vec
-    }
-
-    pub fn usize_vec_to_byte(vec: &Vec<Vec<usize>>) -> Option<Vec<u8>> {
-        if vec.len() <= 0 {
-            return None;
-        }
-        let vec_cpy = vec.clone();
-        let mut byte_array:Vec<u8> = Vec::new();
-
-        for row in vec_cpy {
-            for val in row {
-                byte_array.push(val as u8);
-            }
-        }
-
-        Some(byte_array)
-    }
-
     pub fn cls() {
         stdout().execute(crossterm::cursor::MoveTo(0, 0)).unwrap();
         stdout()
