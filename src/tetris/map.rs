@@ -13,6 +13,14 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use serde::Serialize;
+
+#[derive(Serialize, Debug, Clone)]
+struct TetrisData {
+    map: [[usize; 10]; 20], // 10x20 map
+    score: usize, // current score
+}
+
 #[derive(Debug, Clone)]
 pub struct Map {
     pub map: Vec<Vec<usize>>,
