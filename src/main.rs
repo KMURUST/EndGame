@@ -36,12 +36,12 @@ async fn initialize() -> std::io::Result<()> {
     Ok(())
 }
 
-fn tcp_process(m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
+async fn tcp_process(m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
     let mut stream = TCP_STREAM.get().unwrap().lock().unwrap();
 
     let map_writer = (*m_mutex).lock().unwrap();
     //2차원 벡터 변환
-    let byte_array = built_in::usize_vec_to_byte(&map_writer.map);
+    let byte_array = built_in::usize_vec_to_byte(&map_writer.screen);
     (*stream).write_all(&byte_array.unwrap()).unwrap();
     //읽기
     let mut buffer = [0; 1024];
@@ -93,19 +93,19 @@ async fn handle_block(m_mutex: &Arc<Mutex<Map>>, key: KeyCode) {
 async fn display_game(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
     let map_data = (*m_mutex).lock().unwrap();
     built_in::cls();
-    map_data.encoding();
+    map_data.display();
     map_data.print_score();
     Ok(())
 }
 
 async fn game_update(m_mutex: &Arc<Mutex<Map>>) -> Result<(), ()> {
     let mut map_writer = (*m_mutex).lock().unwrap();
-
     map_writer.down_block();
     if map_writer.block.is_none() {
         println!("GAME OVER!");
         return Err(());
     }
+    map_writer.encoding();
     Ok(())
 }
 
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key(key) => {
                     handle_block(&map_clone, key.code).await;
                     game_update(&map_clone).await;
-                    tcp_process(&map_clone).unwrap();
+                    tcp_process(&map_clone).await;
                 }
                 _ => {}
             }
@@ -135,7 +135,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let update_thread = tokio::spawn(async move {
         loop {
             game_update(&map_dclone).await;
-            tcp_process(&map_dclone).unwrap();
+            tcp_process(&map_dclone).await;
+            
             // 1.5초마다 블럭 이동
             thread::sleep(time::Duration::from_millis(1500))
         }
@@ -145,7 +146,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let display_thread = tokio::spawn(async move {
         loop {
             display_game(&map_fclone).await;
-            // 1.5초마다 블럭 이동
             thread::sleep(time::Duration::from_millis(100))
         }
     });
