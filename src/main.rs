@@ -16,7 +16,7 @@ use tokio::sync::OnceCell;
 use std::net::{SocketAddr, TcpStream};
 
 use tetris::built_in::built_in;
-use tetris::map::Map;
+use tetris::map::{Map, TetrisData};
 use tetris::pos::Move;
 
 use lazy_static::lazy_static;
@@ -35,35 +35,54 @@ async fn initialize() -> std::io::Result<()> {
     TCP_STREAM.set(Arc::new(Mutex::new(stream))).unwrap();
     Ok(())
 }
-/*
-async fn tcp_process(m_mutex: &Arc<Mutex<Map>>) -> Option<Vec<Vec<usize>>> {
+
+async fn tcp_process(m_mutex: &Arc<Mutex<Map>>) {
+
+    fn to_array<T: Default + Copy, const ROW: usize, const COL: usize>(vec: &Vec<Vec<T>>) -> [[T; COL]; ROW] {
+        let mut arr = [[T::default(); COL]; ROW];
+        for i in 0..ROW {
+            for j in 0..COL {
+                arr[i][j] = vec[i][j];
+            }
+        }
+        arr
+    }
+
     let mut stream = TCP_STREAM.get().unwrap().lock().unwrap();
 
-    let map_writer = (*m_mutex).lock().unwrap();
-    //2차원 벡터 변환
-    let byte_array = built_in::usize_vec_to_byte(&map_writer.screen);
-    (*stream).write_all(&byte_array.unwrap()).unwrap();
-    //읽기
+    let mut map_writer = (*m_mutex).lock().unwrap();
+    
+    //serialize
+    let pack = TetrisData {
+        score: map_writer.score,
+        map: to_array::<usize, 20, 10>(&map_writer.screen)
+    };
+    let send_data = serde_json::to_string(&pack).unwrap();
+    //write
+    (*stream).write_all(&send_data.as_bytes()).unwrap();
+    //read
     let mut buffer = [0; 1024];
-    /*
     let n = match stream.read(&mut buffer) {
         Ok(n) if n == 0 => {
-            return None;
+            return;
         }
         Ok(n) => n,
         Err(e) => {
             eprintln!("failed to read from socket; err = {:?}", e);
-            return None;
+            return;
         }
     };
-    */
-    let n = 24;
-    //let data = &buffer[..n];
-    let data = &buffer;
-    let response = built_in::byte_to_usize_vec(data, 12);
-    Some(response)
+    let data = match std::str::from_utf8(&buffer[..n]) {
+        Ok(s) => s.to_owned(),
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    //deserialize
+    let response:TetrisData = serde_json::from_str(&data).unwrap();
+    map_writer.gameData.score = response.score;
+    map_writer.gameData.map = response.map.clone();
+
 }
-*/
+
 async fn handle_block(m_mutex: &Arc<Mutex<Map>>, key: KeyCode) {
     let mut map_writer = (*m_mutex).lock().unwrap();
 
@@ -125,7 +144,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Key(key) => {
                     handle_block(&map_clone, key.code).await;
                     game_update(&map_clone).await;
-                    //tcp_process(&map_clone).await;
+                    tcp_process(&map_clone).await;
                 }
                 _ => {}
             }
@@ -136,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let update_thread = tokio::spawn(async move {
         loop {
             game_update(&map_dclone).await;
-            //tcp_process(&map_dclone).await;
+            tcp_process(&map_dclone).await;
             
             // 1.5초마다 블럭 이동
             thread::sleep(time::Duration::from_millis(1500))

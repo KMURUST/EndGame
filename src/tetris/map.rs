@@ -18,8 +18,8 @@ use serde::Deserialize;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TetrisData {
-    map: [[usize; 10]; 20], // 10x20 map
-    score: usize, // current score
+    pub map: [[usize; 10]; 20], // 10x20 map
+    pub score: usize, // current score
 }
 
 #[derive(Debug, Clone)]
