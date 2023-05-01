@@ -124,23 +124,13 @@ pub mod built_in {
     }
 
     pub fn byte_to_usize_vec(bytes: &[u8], row_len: usize) -> Vec<Vec<usize>> {
-        let col_len = bytes.len() / (row_len * std::mem::size_of::<usize>());
-        let mut vec = vec![vec![0usize; row_len]; col_len];
-
-        for i in 0..col_len {
+        let mut vec = vec![vec![0usize; row_len]; 20];
+    
+        for i in 0..20 {
             for j in 0..row_len {
-                let offset = (i * row_len + j) * std::mem::size_of::<usize>();
-                vec[i][j] = usize::from_le_bytes([
-                    bytes[offset],
-                    bytes[offset + 1],
-                    bytes[offset + 2],
-                    bytes[offset + 3],
-                    bytes[offset + 4],
-                    bytes[offset + 5],
-                    bytes[offset + 6],
-                    bytes[offset + 7],
-                ]);
-            }
+            let offset = i * row_len + j;
+            vec[i][j] = bytes[offset] as usize;
+        }
         }
         vec
     }
@@ -150,23 +140,13 @@ pub mod built_in {
             return None;
         }
         let vec_cpy = vec.clone();
-        //let _size = mem::size_of::<usize>;
-        //let flattened: Vec<usize> = vec_cpy.iter().flatten().cloned().collect();
-        let mut flattened = Vec::new();
+        let mut byte_array:Vec<u8> = Vec::new();
 
         for row in vec_cpy {
             for val in row {
-                flattened.push(val.clone());
+                byte_array.push(val as u8);
             }
         }
-
-        /*
-        let byte_array: Vec<u8> = flattened.iter().fold(vec![], |mut acc, &elem| {
-            acc.extend(&elem.to_ne_bytes());
-            acc
-        });
-        */
-        let byte_array = flattened.iter().map(|&x| x as u8).collect();
 
         Some(byte_array)
     }
